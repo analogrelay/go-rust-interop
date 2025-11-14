@@ -1,4 +1,8 @@
 target/
+rust-sdk/
+
+# Don't commit the clone of the SDK repo
+azure-sdk-for-rust/
 
 # Devenv
 .devenv*

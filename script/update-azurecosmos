@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+#/ Usage: script/update-azurecosmos [<Path to Rust SDK repo>]
+#/
+#/ Builds the Azure Cosmos SDK for Rust native client and copies libraries and headers
+#/ to the rust-sdk directory for use with other languages (e.g., Go via cgo).
+
+set -euo pipefail
+
+# Find the repo root by getting the parent directory of the script's directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Change to repo root to ensure all paths are relative to it
+cd "$REPO_ROOT"
+
+# Get the path to the Azure SDK for Rust repo (relative to repo root)
+AZURE_SDK_PATH="${1:-./azure-sdk-for-rust}"
+
+# Ensure the Azure SDK repo exists
+if [[ ! -d "$AZURE_SDK_PATH" ]]; then
+    echo "Error: Azure SDK for Rust repo not found at '$AZURE_SDK_PATH'"
+    echo "Please ensure the repo exists or specify the correct path as the first argument"
+    exit 1
+fi
+
+# Check if cargo is installed
+if ! command -v cargo &> /dev/null; then
+    echo "Error: cargo is not installed or not in PATH"
+    echo "Please install Rust and Cargo: https://rustup.rs/"
+    exit 1
+fi
+
+# Check if the azure_data_cosmos_native package exists
+COSMOS_NATIVE_PATH="$AZURE_SDK_PATH/sdk/cosmos/azure_data_cosmos_native"
+if [[ ! -d "$COSMOS_NATIVE_PATH" ]]; then
+    echo "Error: azure_data_cosmos_native package not found at '$COSMOS_NATIVE_PATH'"
+    exit 1
+fi
+
+echo "Building azure_data_cosmos_native package..."
+cd "$AZURE_SDK_PATH"
+
+# Build the package in release mode
+cargo build --release --package azure_data_cosmos_native
+
+cd "$REPO_ROOT"
+
+echo "Build completed successfully!"
+
+# Create target directories
+mkdir -p ./rust-sdk/lib
+mkdir -p ./rust-sdk/include
+
+# Copy static library
+STATIC_LIB_PATH="$AZURE_SDK_PATH/target/release/libazurecosmos.a"
+if [[ -f "$STATIC_LIB_PATH" ]]; then
+    echo "Copying static library..."
+    cp "$STATIC_LIB_PATH" ./rust-sdk/lib/
+else
+    echo "Warning: Static library not found at '$STATIC_LIB_PATH'"
+fi
+
+# Copy shared library
+SHARED_LIB_PATH="$AZURE_SDK_PATH/target/release/libazurecosmos.so"
+if [[ -f "$SHARED_LIB_PATH" ]]; then
+    echo "Copying shared library..."
+    cp "$SHARED_LIB_PATH" ./rust-sdk/lib/
+else
+    echo "Warning: Shared library not found at '$SHARED_LIB_PATH'"
+fi
+
+# Copy header file
+HEADER_PATH="$AZURE_SDK_PATH/sdk/cosmos/azure_data_cosmos_native/include/azurecosmos.h"
+if [[ -f "$HEADER_PATH" ]]; then
+    echo "Copying header file..."
+    cp "$HEADER_PATH" ./rust-sdk/include/
+else
+    echo "Error: Header file not found at '$HEADER_PATH'"
+    exit 1
+fi
+
+# Create pkg-config file
+echo "Creating pkg-config file..."
+PKG_CONFIG_FILE="./rust-sdk/lib/azurecosmos.pc"
+
+# Get absolute path for pkg-config (from repo root)
+ABSOLUTE_RUST_SDK_PATH=$(realpath "$REPO_ROOT/rust-sdk")
+
+cat > "$PKG_CONFIG_FILE" << EOF
+prefix=$ABSOLUTE_RUST_SDK_PATH
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: azurecosmos
+Description: Azure Cosmos DB native client library
+Version: 1.0.0
+Libs: -L\${libdir} -lazurecosmos
+Cflags: -I\${includedir}
+EOF
+
+echo "pkg-config file created at '$PKG_CONFIG_FILE'"
+
+echo ""
+echo "Setup completed successfully!"
+echo "Libraries copied to: $REPO_ROOT/rust-sdk/lib/"
+echo "Header copied to: $REPO_ROOT/rust-sdk/include/"
+echo "pkg-config file created at: $REPO_ROOT/rust-sdk/lib/azurecosmos.pc"
+echo ""
+echo "To use with pkg-config, set PKG_CONFIG_PATH:"
+echo "export PKG_CONFIG_PATH=$REPO_ROOT/rust-sdk/lib:\$PKG_CONFIG_PATH"
+echo "pkg-config --cflags --libs azurecosmos"
