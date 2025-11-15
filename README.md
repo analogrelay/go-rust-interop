@@ -4,17 +4,26 @@ This repository contains tests to benchmark performance of the Go SDK, the Rust 
 
 ## Current Results
 
-*These results are just random results collected on my local machine connecting to a CosmosDB account in Canada Central. They are not authoritative and should only be used for comparison between the three implementations.*
+### Machine Configuration
+
+Benchmarks were collected on an Azure VM under the following conditions:
+
+* SKU: Standard_D2s_v3 (2 vCPUs, 8 GiB RAM)
+* OS: Ubuntu 22.04 LTS
+* Region: Canada Central
+* Cosmos DB Account Region: Canada Central
+* Accelerated Networking: Enabled
+* Worker Count: 16 workers (tested to ensure average CPU load of 80% on each core in the Go/Rust native benchmarks)
 
 ### Point Reads
 
 This table compares the performance of point reads across the three implementations.
 
-| Implementation | Total Ops | Duration (ms) | Ops/sec | Latency (ms) |
-|---------------|-----------|---------------|---------|--------------|
-| Rust | 18270 | 60002 | 304.49 | 65.64 |
-| Go | 18237 | 60001 | 303.94 | 65.73 |
-| Go Wrapper | 18185 | 60044 | 302.86 | 66.01 |
+| Implementation | Total Ops | Duration (ms) | Ops/sec | Latency (ms) | Rough CPU Utilization |
+|---------------|-----------|---------------|---------|--------------|-------|
+| Rust | 502760 | 60002 | 8378.97 | 1.91 | 75% per core |
+| Go | 425800 | 60000 | 7096.59 | 2.25 | 75% per core |
+| Go Wrapper | 440182 | 60004 | 7335.80 | 2.18 | 95% per core |
 
 ## Setup
 
