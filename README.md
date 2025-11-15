@@ -14,6 +14,7 @@ Benchmarks were collected on an Azure VM under the following conditions:
 * Cosmos DB Account Region: Canada Central
 * Accelerated Networking: Enabled
 * Worker Count: 16 workers (tested to ensure average CPU load of 80% on each core in the Go/Rust native benchmarks)
+* Release builds used for all implementations (Rust with `--release` flag, Go does not have debug builds by default)
 
 ### Point Reads
 
